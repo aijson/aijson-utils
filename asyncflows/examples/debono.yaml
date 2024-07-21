@@ -69,15 +69,15 @@ flow:
       - heading: Problem
         var: query
       - heading: White Hat
-        link: white_hat.result
+        link: white_hat.response
       - heading: Red Hat
-        link: red_hat.result
+        link: red_hat.response
       - heading: Black Hat
-        link: black_hat.result
+        link: black_hat.response
       - heading: Yellow Hat
-        link: yellow_hat.result
+        link: yellow_hat.response
       - heading: Green Hat
-        link: green_hat.result
+        link: green_hat.response
       - text: |
           Review and synthesize the information and ideas generated from the other hats. 
           Assess which ideas are most feasible and effective based on the facts (White Hat), emotions (Red Hat), risks (Black Hat), benefits (Yellow Hat), and creative solutions (Green Hat). 
@@ -85,4 +85,4 @@ flow:
           Outline a plan with clear steps or actions, indicating responsibilities, deadlines, and milestones. 
           Consider how you will monitor progress and what criteria you will use to evaluate success.
 
-default_output: blue_hat.result
+default_output: blue_hat.response
