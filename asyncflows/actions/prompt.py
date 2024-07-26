@@ -238,7 +238,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
                 }
             )
 
-        token_count = litellm.token_counter(
+        token_count = litellm.token_counter(  # pyright: ignore[reportPrivateImportUsage]
             model=model_config.model,
             messages=messages,
         )
@@ -445,7 +445,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
 
                 client = AsyncOpenAI(api_key=openai_api_key)
 
-            completion: litellm.ModelResponse
+            completion: litellm.ModelResponse  # pyright: ignore[reportPrivateImportUsage]
             with prompt_env_context_singleton:
                 async for completion in await litellm.acompletion(  # type: ignore
                     stream=True,
@@ -526,7 +526,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
         messages: list[dict[str, str]],
         completion: str,
     ) -> float:
-        return litellm.completion_cost(
+        return litellm.completion_cost(  # pyright: ignore[reportPrivateImportUsage]
             model=model.model,
             messages=messages,
             completion=completion,
@@ -590,7 +590,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
                 messages=messages,
                 completion=output,
             )
-        except litellm.NotFoundError:
+        except litellm.utils.NotFoundError:  # pyright: ignore[reportPrivateImportUsage]
             self.log.warning("Failed to estimate cost", model=resolved_model.model)
             estimated_cost_usd = None
 
