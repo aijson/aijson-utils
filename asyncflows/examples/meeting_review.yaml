@@ -1,5 +1,7 @@
 # asyncflows-language-server
 
+version: "0.1"
+
 flow:
 
   # FIRST, generate an unstructured response
