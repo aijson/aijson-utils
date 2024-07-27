@@ -4,9 +4,11 @@ import os
 import tempfile
 import base64
 from collections import defaultdict
+from json import JSONDecodeError
 from typing import Optional, AsyncIterator, Any
 
 import aiohttp
+import pydantic
 import tenacity
 
 from asyncflows.models.config.action import ActionInvocation
@@ -162,6 +164,20 @@ class Prompt(StreamingAction[Inputs, Outputs]):
     """
 
     @classmethod
+    def construct_model_from_schema(cls, schema: dict) -> pydantic.BaseModel | None:
+        try:
+            # TODO support parital inference; for `var:` and `link:` in schema
+            #  honestly rewrite `jsonschema_to_pydantic` to work on dict instead of this obj
+            schema_object = JsonSchemaObject(
+                type="object",
+                properties=schema,
+            )
+        except ValueError:
+            return None
+
+        return jsonschema_to_pydantic(schema_object)
+
+    @classmethod
     def narrow_outputs_type(
         cls, action_invocation: ActionInvocation
     ) -> type[Outputs] | None:
@@ -174,18 +190,12 @@ class Prompt(StreamingAction[Inputs, Outputs]):
         if schema is None:
             return OutputsWithoutSchema
 
-        try:
-            # TODO support parital inference; for `var:` and `link:` in schema
-            #  honestly rewrite `jsonschema_to_pydantic` to work on dict instead of this obj
-            schema_object = JsonSchemaObject(
-                type="object",
-                properties=schema,
-            )
-        except ValueError:
+        model = cls.construct_model_from_schema(schema)
+        if model is None:
             return None
 
         class OutputsWithSchema(Outputs):
-            data: jsonschema_to_pydantic(schema_object)  # type: ignore
+            data: model  # type: ignore
 
         return OutputsWithSchema
 
@@ -275,7 +285,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
         self,
         messages: list[dict[str, str]],
         model_config: ModelConfig,
-    ) -> AsyncIterator[tuple[str, int]]:
+    ) -> AsyncIterator[tuple[str, int | None]]:
         from anthropic import AsyncAnthropic
         from anthropic.types import MessageParam
         from anthropic import NOT_GIVEN
@@ -323,7 +333,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
             top_p=model_config.top_p if model_config.top_p is not None else NOT_GIVEN,
         ) as stream:
             async for completion in stream.text_stream:
-                yield completion, 0
+                yield completion, None
 
     @tenacity.retry(
         wait=tenacity.wait_exponential(multiplier=1, max=10),
@@ -334,7 +344,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
         self,
         messages: list[dict[str, str]],
         model_config: ModelConfig,
-    ) -> AsyncIterator[tuple[str, int]]:
+    ) -> AsyncIterator[tuple[str, int | None]]:
         api_base = (
             model_config.api_base
             or get_secret("OLLAMA_API_BASE")
@@ -403,18 +413,18 @@ class Prompt(StreamingAction[Inputs, Outputs]):
                         json_, buffer = buffer.split("\n", 1)
                         completion = process_completion(json_)
                         if completion is not None:
-                            yield completion, 0
+                            yield completion, None
                 if buffer:
                     completion = process_completion(buffer)
                     if completion is not None:
-                        yield completion, 0
+                        yield completion, None
 
     async def _invoke_litellm(
         self,
         messages: list[dict[str, str]],
         model_config: ModelConfig,
         schema: None | JsonSchemaObject,
-    ) -> AsyncIterator[tuple[str, int]]:
+    ) -> AsyncIterator[tuple[str, int | None]]:
         openai_api_key = get_secret("OPENAI_API_KEY")
         if openai_api_key is None and "gpt" in model_config.model:
             self.log.warning("OpenAI API key not set")
@@ -438,7 +448,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
             ]
 
         client = None
-        tool_index = 0
+        tool_index = None
         try:
             if "gpt" in model_config.model:
                 from openai import AsyncOpenAI
@@ -484,7 +494,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
         messages: list[dict[str, str]],
         model_config: ModelConfig,
         schema: None | JsonSchemaObject,
-    ) -> AsyncIterator[tuple[str, int]]:
+    ) -> AsyncIterator[tuple[str, int | None]]:
         # this function returns (delta, tool_index); when filling functions (currently only via litellm),
         # it returns one argument at a time (incrementing tool_index)
         if "claude" in model_config.model and schema is None:
@@ -532,6 +542,32 @@ class Prompt(StreamingAction[Inputs, Outputs]):
             completion=completion,
         )
 
+    def parse_structured_response(
+        self, tool_responses: dict[int, str], schema: dict
+    ) -> dict | None:
+        data = {}
+
+        try:
+            for tool_response in tool_responses.values():
+                data |= json.loads(tool_response)
+        except json.JSONDecodeError:
+            self.log.exception(
+                "Failed to parse JSON response", tool_responses=tool_responses
+            )
+            return None
+
+        model = self.construct_model_from_schema(schema)
+        if model is None:
+            return None
+
+        try:
+            model.model_validate(data)
+        except pydantic.ValidationError:
+            self.log.exception("Generated data does not adhere to schema", data=data)
+            return None
+
+        return data
+
     async def run(self, inputs: Inputs) -> AsyncIterator[Outputs]:
         if inputs.model is None:
             resolved_model = inputs._default_model
@@ -556,33 +592,25 @@ class Prompt(StreamingAction[Inputs, Outputs]):
 
         output = ""
         tool_responses = defaultdict(str)
+        partial_data = {}
         async for partial_output, tool_index in self.invoke_llm(
             messages=messages,
             model_config=resolved_model,
             schema=schema,
         ):
             output += partial_output
-            tool_responses[tool_index] += partial_output
+            if tool_index is not None:
+                tool_responses[tool_index] += partial_output
+                try:
+                    loaded_output = json.loads(tool_responses[tool_index])
+                    partial_data |= loaded_output
+                except JSONDecodeError:
+                    pass
             yield Outputs(
                 result=output,
                 response=output,
-                data=None,
+                data=partial_data or None,
             )
-
-        if inputs.output_schema is not None:
-            data = {}
-            try:
-                for tool_response in tool_responses.values():
-                    data |= json.loads(tool_response)
-                yield Outputs(
-                    result=output,
-                    response=output,
-                    data=data,
-                )
-            except json.JSONDecodeError:
-                self.log.exception(
-                    "Failed to parse JSON response", tool_responses=tool_responses
-                )
 
         try:
             estimated_cost_usd = self.estimate_cost(
@@ -601,6 +629,19 @@ class Prompt(StreamingAction[Inputs, Outputs]):
             estimated_cost_usd=estimated_cost_usd,
             model=resolved_model.model_dump(),
         )
+
+        # validate and yield final data
+        if inputs.output_schema is not None:
+            data = self.parse_structured_response(tool_responses, inputs.output_schema)
+            if data is None:
+                raise RuntimeError(
+                    "Data returned by LLM does not adhere to output schema"
+                )
+            yield Outputs(
+                result=output,
+                response=output,
+                data=data,
+            )
 
 
 # if __name__ == "__main__":
