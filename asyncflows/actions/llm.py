@@ -113,7 +113,7 @@ class Inputs(DefaultModelInputs):
         description="The quote style to use for the prompt. "
         "Defaults to XML-style quotes for Claude models and backticks for others.",
     )
-    prompt: list[PromptElement] = Field(
+    prompt: str | list[PromptElement] = Field(
         description="""
 The prompt to send to the language model.  
 Consists of multiple elements like text, roles, variables, links, and more.
@@ -157,7 +157,7 @@ If `output_schema` input is specified, this is a JSON string. Use `my_prompt.dat
 
 
 class Prompt(StreamingAction[Inputs, Outputs]):
-    name = "prompt"
+    name = "llm"
 
     description = """
     Prompt the LLM with a message and receive a response.
@@ -201,7 +201,7 @@ class Prompt(StreamingAction[Inputs, Outputs]):
 
     def build_messages(
         self,
-        message_config: list[PromptElement],
+        message_config: str | list[PromptElement],
         model_config: ModelConfig,
         quote_style: None | QuoteStyle,
     ) -> list[dict[str, str]]:
@@ -230,23 +230,36 @@ class Prompt(StreamingAction[Inputs, Outputs]):
             current_message_elements = []
             current_role = new_role
 
-        for prompt_element in message_config:
-            if isinstance(prompt_element, RoleElement):
-                deposit_messages(prompt_element.role)
-                continue
-            elif isinstance(prompt_element, TextElement):
-                role = prompt_element.role
-                if role is not None:
-                    deposit_messages(role)
-
-            current_message_elements.append(prompt_element.as_string(quote_style))
-        if current_message_elements:
-            messages.append(
+        if isinstance(message_config, str):
+            messages += [
+                # TODO should we append a standard system message? "You are a helpful assistant"?
                 {
-                    "role": current_role,
-                    "content": "\n\n".join(current_message_elements),
+                    "role": "user",
+                    "content": message_config,
                 }
-            )
+            ]
+        else:
+            for prompt_element in message_config:
+                if isinstance(prompt_element, RoleElement):
+                    deposit_messages(prompt_element.role)
+                    continue
+                elif isinstance(prompt_element, TextElement):
+                    role = prompt_element.role
+                    if role is not None:
+                        deposit_messages(role)
+
+                if isinstance(prompt_element, str):
+                    as_str = prompt_element
+                else:
+                    as_str = prompt_element.as_string(quote_style)
+                current_message_elements.append(as_str)
+            if current_message_elements:
+                messages.append(
+                    {
+                        "role": current_role,
+                        "content": "\n\n".join(current_message_elements),
+                    }
+                )
 
         token_count = litellm.token_counter(  # pyright: ignore[reportPrivateImportUsage]
             model=model_config.model,

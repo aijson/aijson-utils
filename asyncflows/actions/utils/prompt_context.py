@@ -151,6 +151,7 @@ PromptElement = Union[
     RoleElement,
     TextElement,
     ContextElement,
+    str,
 ]
 
 
