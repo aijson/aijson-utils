@@ -10,7 +10,7 @@ flow:
 
   # The white hat focuses on the available information and facts about the problem.
   white_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query
@@ -21,7 +21,7 @@ flow:
 
   # The red hat explores emotions, feelings, and intuitions about the problem.
   red_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query
@@ -32,7 +32,7 @@ flow:
 
   # The black hat considers the risks, obstacles, and potential downsides of the problem.
   black_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query
@@ -43,7 +43,7 @@ flow:
 
   # The yellow hat focuses on the positive aspects, benefits, and opportunities of the problem.
   yellow_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query
@@ -54,7 +54,7 @@ flow:
 
   # The green hat generates creative ideas, alternatives, and innovative solutions to the problem.
   green_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query
@@ -65,7 +65,7 @@ flow:
 
   # The blue hat manages the thinking process, synthesizes insights, and outlines a plan of action.
   blue_hat:
-    action: prompt
+    action: llm
     prompt:
       - heading: Problem
         var: query

@@ -7,7 +7,7 @@ default_model:
   max_output_tokens: 50
 flow:
   hello_world:
-    action: prompt
+    action: llm
     prompt:
       - text: Can you say hello world for me?
 #default_output: hello_world.result

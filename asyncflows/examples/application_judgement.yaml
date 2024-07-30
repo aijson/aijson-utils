@@ -6,7 +6,7 @@ default_model:
 
 flow:
   judgement:
-    action: prompt
+    action: llm
     quote_style: xml
     prompt:
         - role: system 
@@ -26,7 +26,7 @@ flow:
         - heading: application
           var: application
   suggestions: 
-    action: prompt
+    action: llm
     quote_style: xml
     prompt: 
         - role: system

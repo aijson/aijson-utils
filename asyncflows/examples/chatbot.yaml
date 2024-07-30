@@ -17,7 +17,7 @@ flow:
           var: filepath
   # Analyze the user's query and generate a question for the retrieval system
   generate_query:
-    action: prompt
+    action: llm
     quote_style: xml
     prompt:
       - heading: User's Message
@@ -62,7 +62,7 @@ flow:
       link: extract_query.result
   # `chatbot` prompts the LLM to summarize the top papers
   chatbot:
-    action: prompt
+    action: llm
     quote_style: xml
     prompt:
       - role: system

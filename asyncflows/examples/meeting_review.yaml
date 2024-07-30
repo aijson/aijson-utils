@@ -6,7 +6,7 @@ flow:
 
   # FIRST, generate an unstructured response
   meeting_review:
-    action: prompt
+    action: llm
     # Use Claude-3 Opus with a temperature of 1
     model:
       model: claude-3-5-sonnet-20240620
@@ -20,7 +20,7 @@ flow:
 
   # THEN, structure the response
   structure:
-    action: prompt
+    action: llm
     # Use GPT-4o with a temperature of 0
     model:
       model: gpt-4o
