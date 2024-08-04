@@ -34,8 +34,11 @@ async def get_engine(
     device: Literal["cpu", "cuda", "mps", "tensorrt"] | None,
     keep_engine_alive_delay: float,
 ) -> AsyncIterator[AsyncEmbeddingEngine]:
-    from infinity_emb import AsyncEmbeddingEngine, EngineArgs
-    from infinity_emb.primitives import Device
+    try:
+        from infinity_emb import AsyncEmbeddingEngine, EngineArgs
+        from infinity_emb.primitives import Device
+    except ImportError:
+        raise RuntimeError("infinity_emb not installed. Install with `pip install 'aijson-ml[transformers]'")
 
     if model in active_engines:
         engine = active_engines[model]
