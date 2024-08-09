@@ -9,18 +9,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import tenacity
 import yaml
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker
 
 from aijson.utils.action_utils import get_actions_dict
-from aijson_ml.actions.llm import Outputs as PromptOutputs, Prompt
-from aijson_ml.actions.transformer import (
-    BaseTransformerInputs as TransformerInputs,
-    Outputs as TransformerOutputs,
-    Retrieve,
-    Rerank,
-)
 from aijson.log_config import configure_logging, get_logger
 from aijson.models.blob import Blob
 from aijson.models.config.flow import build_hinted_action_config
@@ -196,65 +186,6 @@ def mock_tenacity():
         yield
 
 
-Base = declarative_base()
-
-
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    fullname = Column(String)
-    nickname = Column(String)
-
-    def __repr__(self):
-        return f"<User(name={self.name}, fullname={self.fullname}, nickname={self.nickname})>"
-
-
-@pytest.fixture
-def dummy_sqlite_engine():
-    engine = create_engine("sqlite:///:memory:", echo=True, future=True)
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    ed_user = User(name="ed", fullname="Ed Jones", nickname="edsnickname")
-    session.add(ed_user)
-    session.commit()
-    return engine
-
-
-@pytest.fixture
-def mock_sqlite_engine(dummy_sqlite_engine):
-    with patch(
-        "sqlalchemy.create_engine",
-        return_value=dummy_sqlite_engine,
-    ):
-        yield
-
-
-@pytest.fixture
-async def dummy_async_sqlite_engine():
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=True)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with AsyncSession(engine) as session:
-        ed_user = User(name="ed", fullname="Ed Jones", nickname="edsnickname")
-        session.add(ed_user)
-        await session.commit()
-
-    return engine
-
-
-@pytest.fixture
-def mock_async_sqlite_engine(dummy_async_sqlite_engine):
-    with patch(
-        "sqlalchemy.ext.asyncio.create_async_engine",
-        return_value=dummy_async_sqlite_engine,
-    ):
-        yield
-
-
 @pytest.fixture
 def blocking_func():
     async def block(*args, **kwargs):
@@ -337,43 +268,6 @@ def gracefully_cancel_tasks(event_loop):
     for task in tasks:
         task.cancel()
     event_loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-
-
-@pytest.fixture
-def mock_prompt_result():
-    # TODO define mocks per action instance, not globally
-    return "mock result prompt <summary> my summary </summary> <sql> select * from users </sql>"
-
-
-@pytest.fixture()
-def mock_prompt_action(mock_prompt_result):
-    # TODO mock the prompt for each example separately
-    outputs = PromptOutputs(
-        result=mock_prompt_result,
-        response=mock_prompt_result,
-        data={
-            "action_items": ["a", "b"],
-        },
-    )
-
-    async def outputs_iter(*args, **kwargs):
-        yield outputs
-
-    with patch.object(Prompt, "run", new=outputs_iter):
-        yield
-
-
-@pytest.fixture()
-def mock_transformer_action():
-    async def outputs_ret(self, inputs: TransformerInputs):
-        return TransformerOutputs(
-            result=inputs.documents,
-        )
-
-    with patch.object(Retrieve, "run", new=outputs_ret), patch.object(
-        Rerank, "run", new=outputs_ret
-    ):
-        yield
 
 
 @pytest.fixture

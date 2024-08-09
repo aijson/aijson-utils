@@ -1,14 +1,14 @@
 type:
-	pyright aijson_ml
+	pyright aijson_utils
 
 test:
-	pytest aijson_ml
+	pytest aijson_utils
 
 test-no-skip:
 	pytest --disallow-skip
 
 test-fast:
-	pytest -m "not slow" aijson_ml
+	pytest -m "not slow" aijson_utils
 
 lint:
 	ruff check --fix
