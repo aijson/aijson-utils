@@ -8,10 +8,11 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-aijson-core = "^0.1.16"
+aijson-core = "^0.2.0"
 
 
 beautifulsoup4 = "^4.12.3"
+markdown = "^3.7"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

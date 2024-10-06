@@ -13,7 +13,7 @@ import yaml
 from aijson.utils.action_utils import get_actions_dict
 from aijson.log_config import configure_logging, get_logger
 from aijson.models.blob import Blob
-from aijson.models.config.flow import build_hinted_action_config
+from aijson.models.config.flow import build_action_config
 from aijson.repos.blob_repo import (
     InMemoryBlobRepo,
     RedisBlobRepo,
@@ -202,7 +202,7 @@ def testing_actions_type():
 
     testing_action_names = list(get_actions_dict().keys())
 
-    return build_hinted_action_config(
+    return build_action_config(
         action_names=testing_action_names,
     )
 
