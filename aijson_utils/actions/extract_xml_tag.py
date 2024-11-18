@@ -2,13 +2,16 @@ from aijson import Action, BaseModel, Field
 
 import re
 
+from aijson.models.io import DefaultOutputOutputs
+
 
 class Inputs(BaseModel):
     text: str = Field(description="Text to extract out of <tag>text</tag>")
     tag: str = Field(description="Tag to extract from")
 
 
-class Outputs(BaseModel):
+class Outputs(DefaultOutputOutputs):
+    _default_output = "result"
     result: str = Field(description="Text extracted from the tag")
 
 
